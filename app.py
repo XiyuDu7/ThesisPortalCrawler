@@ -77,9 +77,23 @@ def get_dynamic_filters():
 def crawl_jobs(form_data):
     """Crawls list pages based on form criteria and fetches details concurrently."""
     payload = {}
+    groups = {}
+    
+    # Parse form data and reformat keys for ASP.NET MVC binding (e.g. OpportunityCredits[0])
     for key, value in form_data.items():
-        payload[key] = value
-        
+        if '.' in key:
+            prefix = key.split('.')[0]
+            if prefix not in groups:
+                groups[prefix] = []
+            groups[prefix].append(value)
+        else:
+            payload[key] = value
+            
+    # Add array-like payload items
+    for prefix, values in groups.items():
+        for i, val in enumerate(values):
+            payload[f"{prefix}[{i}]"] = val
+            
     session = requests.Session()
     list_url = "https://annonsportal.chalmers.se/CareerServices/en/Ads/LoadAdList"
     
