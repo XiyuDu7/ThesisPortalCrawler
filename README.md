@@ -19,7 +19,7 @@ A lightweight Flask web application that scrapes job listings from the [Chalmers
 
 1. Navigate to the project directory:
    ```bash
-   cd /chalmers/users/xiyud/WebCrawler
+   cd /WebCrawler
    ```
 
 2. Create and activate a Python virtual environment:
