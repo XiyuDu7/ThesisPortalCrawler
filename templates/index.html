@@ -23,12 +23,40 @@
         .btn:hover { background-color: #004080; }
         .btn:disabled { background-color: #7fa8d2; cursor: not-allowed; }
         .loading-text { display: none; margin-left: 15px; font-style: italic; color: #666; font-weight: bold; }
+        
+        .btn-print { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; font-size: 16px; border-radius: 4px; font-weight: bold; transition: background-color 0.2s; }
+        .btn-print:hover { background-color: #218838; }
+        
+        .results-header { display: flex; justify-content: space-between; align-items: center; }
+        .print-only { display: none; }
+        
+        @media print {
+            .print-only { display: block; font-style: italic; color: #555; margin-bottom: 20px; font-size: 1.1em; margin-top: -10px; }
+            form, hr, .btn-print, #loading { display: none !important; }
+            body { margin: 0; padding: 0; max-width: 100%; color: black; }
+            h1 { margin-top: 0; padding-top: 0; }
+            .job { page-break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 15px; }
+            .job-link { color: black; text-decoration: underline; }
+            .description { color: black; }
+        }
     </style>
     <script>
         function showLoading() {
             document.getElementById('loading').style.display = 'inline-block';
             document.getElementById('submit-btn').disabled = true;
             document.getElementById('submit-btn').value = "Crawling...";
+        }
+        
+        function preparePrint() {
+            let checked = document.querySelectorAll('.filters input[type="checkbox"]:checked');
+            let labels = Array.from(checked).map(cb => cb.parentElement.textContent.trim());
+            let filterText = labels.length > 0 ? "Selected Filters: " + labels.join(", ") : "Selected Filters: None (All Jobs)";
+            
+            let printFilters = document.getElementById('print-selected-filters');
+            if (printFilters) {
+                printFilters.innerText = filterText;
+            }
+            window.print();
         }
     </script>
 </head>
@@ -62,7 +90,13 @@
     
     {% if jobs is defined %}
         <hr style="margin-top: 30px; margin-bottom: 20px; border-top: 1px solid #ccc;">
-        <h2>Results ({{ jobs|length }} jobs found)</h2>
+        <div class="results-header">
+            <div>
+                <h2>Results ({{ jobs|length }} jobs found)</h2>
+                <div id="print-selected-filters" class="print-only"></div>
+            </div>
+            <button class="btn-print" onclick="preparePrint()">Save as PDF</button>
+        </div>
         {% for job in jobs %}
             <div class="job">
                 <h2>{{ job.title }}</h2>
