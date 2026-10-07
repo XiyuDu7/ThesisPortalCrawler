@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chalmers Job Crawler</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; max-width: 1000px; color: #333; }
+        h1 { border-bottom: 2px solid #0055a4; padding-bottom: 10px; color: #0055a4; }
+        
+        .job { border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; background-color: #f9f9f9; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .job h2 { margin-top: 0; color: #222; }
+        .job-link { font-size: 0.95em; color: #0066cc; text-decoration: none; word-break: break-all; }
+        .job-link:hover { text-decoration: underline; }
+        .description { white-space: pre-wrap; margin-top: 15px; color: #444; line-height: 1.5; }
+        
+        .filters { display: flex; gap: 20px; margin-bottom: 25px; background: #eee; padding: 20px; border-radius: 8px; align-items: flex-start; flex-wrap: wrap; }
+        .filter-group { flex: 1; min-width: 250px; max-height: 350px; overflow-y: auto; background: white; padding: 15px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .filter-group h3 { margin-top: 0; color: #0055a4; position: sticky; top: 0; background: white; padding-bottom: 10px; border-bottom: 1px solid #ddd; margin-bottom: 10px; z-index: 1; }
+        
+        label { display: block; margin-bottom: 8px; cursor: pointer; font-size: 0.95em; }
+        
+        .btn { padding: 12px 24px; background-color: #0055a4; color: white; border: none; cursor: pointer; font-size: 16px; border-radius: 4px; font-weight: bold; transition: background-color 0.2s; }
+        .btn:hover { background-color: #004080; }
+        .btn:disabled { background-color: #7fa8d2; cursor: not-allowed; }
+        .loading-text { display: none; margin-left: 15px; font-style: italic; color: #666; font-weight: bold; }
+    </style>
+    <script>
+        function showLoading() {
+            document.getElementById('loading').style.display = 'inline-block';
+            document.getElementById('submit-btn').disabled = true;
+            document.getElementById('submit-btn').value = "Crawling...";
+        }
+    </script>
+</head>
+<body>
+    <h1>Chalmers Job Crawler</h1>
+    
+    <form action="/crawl" method="POST" onsubmit="showLoading()">
+        <div class="filters">
+            {% if filters %}
+                {% for filter_group in filters %}
+                <div class="filter-group">
+                    <h3>{{ filter_group.group_name }}</h3>
+                    {% for cb in filter_group.checkboxes %}
+                    <label>
+                        <input type="checkbox" name="{{ cb.name }}" value="{{ cb.value }}"> 
+                        {{ cb.text }}
+                    </label>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>Could not load filters from Chalmers job portal. Please try refreshing.</p>
+            {% endif %}
+        </div>
+        
+        <div>
+            <input type="submit" id="submit-btn" class="btn" value="Start Crawling" {% if not filters %}disabled{% endif %}>
+            <span id="loading" class="loading-text">Crawling all matched jobs... This might take a few moments.</span>
+        </div>
+    </form>
+    
+    {% if jobs is defined %}
+        <hr style="margin-top: 30px; margin-bottom: 20px; border-top: 1px solid #ccc;">
+        <h2>Results ({{ jobs|length }} jobs found)</h2>
+        {% for job in jobs %}
+            <div class="job">
+                <h2>{{ job.title }}</h2>
+                <p><strong>URL:</strong> <a href="{{ job.url }}" class="job-link" target="_blank">{{ job.url }}</a></p>
+                <div class="description">{{ job.description }}</div>
+            </div>
+        {% else %}
+            <p>No jobs found matching the selected criteria.</p>
+        {% endfor %}
+    {% endif %}
+</body>
+</html>
