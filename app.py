@@ -6,7 +6,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='functions/templates')
 
 def fetch_detail(session, detail_url):
     """Fetches and parses a single job detail page to extract title and description."""

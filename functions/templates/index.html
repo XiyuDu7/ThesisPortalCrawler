@@ -71,7 +71,7 @@
                     <h3>{{ filter_group.group_name }}</h3>
                     {% for cb in filter_group.checkboxes %}
                     <label>
-                        <input type="checkbox" name="{{ cb.name }}" value="{{ cb.value }}"> 
+                        <input type="checkbox" name="{{ cb.name }}" value="{{ cb.value }}" {% if cb.value in request.form.getlist(cb.name) %}checked{% endif %}> 
                         {{ cb.text }}
                     </label>
                     {% endfor %}
