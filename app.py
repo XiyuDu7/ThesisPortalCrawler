@@ -151,8 +151,12 @@ def index():
     filters = get_dynamic_filters()
     return render_template('index.html', filters=filters)
 
-@app.route('/crawl', methods=['POST'])
+from flask import redirect, url_for
+
+@app.route('/crawl', methods=['GET', 'POST'])
 def run_crawl():
+    if request.method == 'GET':
+        return redirect(url_for('index'))
     filters = get_dynamic_filters()
     jobs = crawl_jobs(request.form)
     return render_template('index.html', filters=filters, jobs=jobs)
