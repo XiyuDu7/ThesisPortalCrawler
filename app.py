@@ -1,7 +1,9 @@
 import re
 import concurrent.futures
+from http.cookiejar import DefaultCookiePolicy
 from flask import Flask, render_template, request
 import requests
+from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
@@ -74,6 +76,29 @@ def get_dynamic_filters():
         print(f"Error fetching filters: {e}")
         return []
 
+def extract_job_urls(soup):
+    """Extracts job detail URLs from a parsed list page."""
+    urls = []
+    for article in soup.find_all('article'):
+        a_tag = article.find('a')
+        if a_tag and 'href' in a_tag.attrs:
+            urls.append("https://annonsportal.chalmers.se" + a_tag['href'])
+    return urls
+
+def fetch_list_page(session, list_url, base_payload, page):
+    """Fetches a single list page and returns its job URLs."""
+    page_payload = dict(base_payload)
+    page_payload['page'] = page
+    print(f"Gathering URLs from page {page}...")
+    try:
+        response = session.post(list_url, data=page_payload, timeout=15)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            return extract_job_urls(soup)
+    except Exception as e:
+        print(f"Error fetching list page {page}: {e}")
+    return []
+
 def crawl_jobs(form_data):
     """Crawls list pages based on form criteria and fetches details concurrently."""
     payload = {}
@@ -95,49 +120,47 @@ def crawl_jobs(form_data):
             payload[f"{prefix}[{i}]"] = val
             
     session = requests.Session()
+    # Disable cookies so ASP.NET does not serialize concurrent requests on the same SessionId
+    session.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
+    adapter = HTTPAdapter(pool_connections=25, pool_maxsize=25)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
     list_url = "https://annonsportal.chalmers.se/CareerServices/en/Ads/LoadAdList"
     
     urls_to_fetch = []
-    page = 1
     
-    while True:
-        payload['page'] = page
-        print(f"Gathering URLs from page {page}...")
-        try:
-            response = session.post(list_url, data=payload, timeout=15)
-            if response.status_code != 200:
-                break
-                
+    # Fetch page 1 to get initial results and determine total page count
+    print("Gathering URLs from page 1...")
+    try:
+        first_payload = dict(payload)
+        first_payload['page'] = 1
+        response = session.post(list_url, data=first_payload, timeout=15)
+        if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
+            urls_to_fetch.extend(extract_job_urls(soup))
             
-            active_li = soup.find('li', class_='active')
-            if active_li:
-                active_a = active_li.find('a')
-                if active_a and active_a.get('data-page') != str(page):
-                    break
+            page_nums = [
+                int(a['data-page'])
+                for a in soup.select('ul.pagination a[data-page]')
+                if a['data-page'].isdigit()
+            ]
+            max_page = min(max(page_nums, default=1), 50)
             
-            articles = soup.find_all('article')
-            if not articles:
-                break
-                
-            for article in articles:
-                a_tag = article.find('a')
-                if a_tag and 'href' in a_tag.attrs:
-                    job_url = "https://annonsportal.chalmers.se" + a_tag['href']
-                    urls_to_fetch.append(job_url)
-                    
-            if page >= 50:
-                break
-            page += 1
-            
-        except Exception as e:
-            print(f"Error fetching list page {page}: {e}")
-            break
+            if max_page > 1:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+                    page_results = executor.map(
+                        lambda p: fetch_list_page(session, list_url, payload, p),
+                        range(2, max_page + 1)
+                    )
+                    for page_urls in page_results:
+                        urls_to_fetch.extend(page_urls)
+    except Exception as e:
+        print(f"Error fetching list page 1: {e}")
             
     print(f"Total job URLs found: {len(urls_to_fetch)}")
     
     jobs = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = [executor.submit(fetch_detail, session, url) for url in urls_to_fetch]
         for future in concurrent.futures.as_completed(futures):
             res = future.result()
